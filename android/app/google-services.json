@@ -1,0 +1,97 @@
+{
+  "project_info": {
+    "project_number": "435395318116",
+    "project_id": "petadoption-b33b9",
+    "storage_bucket": "petadoption-b33b9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:435395318116:android:2d7a42fdbae430bfeb2a71",
+        "android_client_info": {
+          "package_name": "com.example.pet_adoption_mobile_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa9nrRNEm8upL2eUvygx1LU2AeQO6Hp2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:435395318116:android:70c4220466f2a58aeb2a71",
+        "android_client_info": {
+          "package_name": "com.example.pet_adoption_mobilea_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa9nrRNEm8upL2eUvygx1LU2AeQO6Hp2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:435395318116:android:1149b339a9e80d1feb2a71",
+        "android_client_info": {
+          "package_name": "com.ulku.petadoptionmobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa9nrRNEm8upL2eUvygx1LU2AeQO6Hp2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

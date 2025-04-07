@@ -29,6 +29,13 @@
             {
               "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "435395318116-440945imbjdg5teabs8tp27v67svcajp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.petAdoptionMobileApp"
+              }
             }
           ]
         }
@@ -58,6 +65,13 @@
             {
               "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "435395318116-440945imbjdg5teabs8tp27v67svcajp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.petAdoptionMobileApp"
+              }
             }
           ]
         }
@@ -87,6 +101,13 @@
             {
               "client_id": "435395318116-hlaal2spf385qecq717j5tmij5f6do1q.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "435395318116-440945imbjdg5teabs8tp27v67svcajp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.petAdoptionMobileApp"
+              }
             }
           ]
         }

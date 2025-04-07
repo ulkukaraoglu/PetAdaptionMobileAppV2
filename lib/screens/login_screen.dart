@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import './register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -11,12 +12,31 @@ class _LoginScreenState extends State<LoginScreen> {
   String _email = '';
   String _password = '';
 
+  // Controller'ları ekleyelim
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
   // Renk tanımlamaları
   final Color primaryOrange = Color(0xFFFF8C00);
   final Color darkGrey = Color(0xFF333333);
   final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
   final Color inputTextColor = Colors.white70;
   final Color placeholderColor = Colors.white38;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // Form alanlarını temizleme fonksiyonu
+  void _clearForm() {
+    _emailController.clear();
+    _passwordController.clear();
+    // Form durumunu sıfırla
+    _formKey.currentState?.reset();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,9 +84,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 8),
                     TextFormField(
+                      controller: _emailController,
                       decoration: InputDecoration(
                         hintText: 'E-posta adresiniz',
                         hintStyle: TextStyle(color: Colors.white38),
+                        errorStyle: TextStyle(
+                          color: Colors.red[400],
+                          fontSize: 12,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -86,7 +111,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Lütfen e-posta adresinizi girin';
+                          return 'E-posta adresi boş bırakılamaz';
+                        }
+                        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                        if (!emailRegex.hasMatch(value)) {
+                          return 'Geçerli bir e-posta adresi giriniz';
                         }
                         return null;
                       },
@@ -103,9 +132,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 8),
                     TextFormField(
+                      controller: _passwordController,
                       decoration: InputDecoration(
                         hintText: 'Şifreniz',
                         hintStyle: TextStyle(color: Colors.white38),
+                        errorStyle: TextStyle(
+                          color: Colors.red[400],
+                          fontSize: 12,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -125,7 +159,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       obscureText: true,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Lütfen şifrenizi girin';
+                          return 'Şifre boş bırakılamaz';
+                        }
+                        if (value.length < 6) {
+                          return 'Şifre en az 6 karakter olmalıdır';
                         }
                         return null;
                       },
@@ -165,6 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (_formKey.currentState!.validate()) {
                             _formKey.currentState!.save();
                             // Giriş işlemleri
+                            Navigator.pushReplacementNamed(context, '/home');
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -234,7 +272,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         TextButton(
                           onPressed: () {
-                            // Kayıt sayfasına yönlendirme
+                            _clearForm(); // Form alanlarını ve hata mesajlarını temizle
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RegisterScreen(),
+                              ),
+                            );
                           },
                           child: Text(
                             'Kayıt Ol',

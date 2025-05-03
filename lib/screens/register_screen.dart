@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../wrapper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -11,10 +16,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _email = '';
   String _password = '';
   String _confirmPassword = '';
-  
+
   // Şifre kontrolü için TextEditingController'lar
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   // Controller'ları ekleyelim
   final TextEditingController _emailController = TextEditingController();
@@ -42,6 +48,76 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
   final Color inputTextColor = Colors.white70;
   final Color placeholderColor = Colors.white38;
+
+  // Google ile kayıt fonksiyonu
+  Future<void> _handleGoogleSignUp() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: [
+          'email',
+          'profile',
+        ],
+      );
+
+      // Mevcut oturumu kontrol et ve varsa kapat
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+      }
+
+      // Yeni oturum aç
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        print('Kullanıcı Google girişini iptal etti');
+        return;
+      }
+
+      // Kimlik doğrulama bilgilerini al
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Firebase credential oluştur
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Firebase ile giriş yap
+      final UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        // Firestore'a kullanıcıyı ekle
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .set({
+          'email': userCredential.user!.email,
+          'displayName': userCredential.user!.displayName,
+          'photoURL': userCredential.user!.photoURL,
+          'lastLogin': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const AuthWrapper()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      print('Google ile kayıt olurken hata: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Google ile kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -108,11 +184,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: primaryOrange, width: 2),
+                              borderSide:
+                                  BorderSide(color: primaryOrange, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
                           ),
                           style: TextStyle(color: Colors.white),
                           keyboardType: TextInputType.emailAddress,
@@ -120,7 +198,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             if (value == null || value.isEmpty) {
                               return 'E-posta adresi boş bırakılamaz';
                             }
-                            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            final emailRegex =
+                                RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                             if (!emailRegex.hasMatch(value)) {
                               return 'Geçerli bir e-posta adresi giriniz';
                             }
@@ -156,11 +235,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: primaryOrange, width: 2),
+                              borderSide:
+                                  BorderSide(color: primaryOrange, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
                           ),
                           style: TextStyle(color: Colors.white),
                           obscureText: true,
@@ -203,11 +284,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: primaryOrange, width: 2),
+                              borderSide:
+                                  BorderSide(color: primaryOrange, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 16),
                           ),
                           style: TextStyle(color: Colors.white),
                           obscureText: true,
@@ -240,7 +323,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   return;
                                 }
                                 // Kayıt işlemleri
-                                Navigator.pushReplacementNamed(context, '/home');
+                                Navigator.pushReplacementNamed(
+                                    context, '/home');
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -287,9 +371,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 fontSize: 16,
                               ),
                             ),
-                            onPressed: () {
-                              // Google ile kayıt işlemi
-                            },
+                            onPressed: _handleGoogleSignUp,
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.white24),
                               shape: RoundedRectangleBorder(
@@ -298,7 +380,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
-                        SizedBox(height: 100), // Login linki için boşluk bırakıyoruz
+                        SizedBox(
+                            height: 100), // Login linki için boşluk bırakıyoruz
                       ],
                     ),
                   ),
@@ -342,4 +425,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-} 
+}

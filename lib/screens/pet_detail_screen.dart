@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/pet.dart';
 import '../utils/city_utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/chat_service.dart';
+import 'chat_screen.dart';
 
 class PetDetailScreen extends StatelessWidget {
   final Pet pet;
@@ -114,8 +117,19 @@ class PetDetailScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // TODO: Implement contact functionality
+                      onPressed: () async {
+                        final currentUser = FirebaseAuth.instance.currentUser;
+                        if (currentUser == null || pet.ownerId == currentUser.uid) return;
+                        final chatId = await ChatService().startOrGetChat(currentUser.uid, pet.ownerId);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatScreen(
+                              chatId: chatId,
+                              otherUserId: pet.ownerId,
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryOrange,

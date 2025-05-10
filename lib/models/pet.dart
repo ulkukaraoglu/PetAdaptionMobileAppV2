@@ -39,8 +39,10 @@ class Pet {
       description: data['description'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
       isUrgent: data['isUrgent'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      ownerId: data['ownerId'] ?? '',
+      createdAt: data['createdAt'] is String
+          ? DateTime.parse(data['createdAt'])
+          : (data['createdAt'] as Timestamp).toDate(),
+      ownerId: data['ownerId'] ?? data['userId'] ?? '',
     );
   }
 }

@@ -10,6 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/pet.dart';
 import '../utils/city_utils.dart';
 import 'pet_detail_screen.dart';
+import 'chat_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -30,12 +31,31 @@ class _HomeScreenState extends State<HomeScreen> {
   bool urgentOnly = false;
 
   Stream<List<Pet>> get petsStream {
-    return FirebaseFirestore.instance
-        .collection('pets')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Pet.fromFirestore(doc)).toList());
+    try {
+      print('Firestore bağlantısı başlatılıyor...');
+      return FirebaseFirestore.instance
+          .collection('pets')
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .map((snapshot) {
+            try {
+              print('Döküman sayısı: ${snapshot.docs.length}');
+              final pets = snapshot.docs.map((doc) {
+                print('Döküman ID: ${doc.id}');
+                print('Döküman verisi: ${doc.data()}');
+                return Pet.fromFirestore(doc);
+              }).toList();
+              print('Dönüştürülen pet sayısı: ${pets.length}');
+              return pets;
+            } catch (e) {
+              print('Veri dönüştürme hatası: $e');
+              return <Pet>[];
+            }
+          });
+    } catch (e) {
+      print('Firestore bağlantı hatası: $e');
+      return Stream.value(<Pet>[]);
+    }
   }
 
   // Çıkış yapma fonksiyonu
@@ -353,6 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print('ChatListScreen build edildi');
     return Scaffold(
       backgroundColor: modalBackground,
       appBar: AppBar(
@@ -366,6 +387,17 @@ class _HomeScreenState extends State<HomeScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        // actions: [
+        //   IconButton(
+        //     icon: Icon(Icons.message, color: Colors.white),
+        //     onPressed: () {
+        //       print('Chat ikonuna basıldı');
+        //       Navigator.of(context, rootNavigator: true).push(
+        //         MaterialPageRoute(builder: (context) => ChatListScreen()),
+        //       );
+        //     },
+        //   ),
+        // ],
       ),
       body: SafeArea(
         child: Column(
@@ -410,125 +442,140 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             // Evcil hayvan listesi
             Expanded(
-              child: StreamBuilder<List<Pet>>(
-                stream: petsStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                        child: Text('Bir hata oluştu',
-                            style: TextStyle(color: Colors.white)));
-                  }
-                  final pets = snapshot.data ?? [];
-                  if (pets.isEmpty) {
-                    return Center(
-                        child: Text('Hiç ilan yok',
-                            style: TextStyle(color: Colors.white)));
-                  }
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.75,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
-                    itemCount: pets.length,
-                    itemBuilder: (context, index) {
-                      final pet = pets[index];
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PetDetailScreen(pet: pet),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  // Stream'i yeniden başlatmak için setState kullanıyoruz
+                  setState(() {});
+                },
+                child: StreamBuilder<List<Pet>>(
+                  stream: petsStream,
+                  builder: (context, snapshot) {
+                    print('StreamBuilder durumu: ${snapshot.connectionState}');
+                    if (snapshot.hasError) {
+                      print('StreamBuilder hatası: ${snapshot.error}');
+                      return Center(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                child: Image.network(
-                                  pet.imageUrl,
-                                  height: 120,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
+                              Text('Bir hata oluştu',
+                                  style: TextStyle(color: Colors.white)),
+                              SizedBox(height: 8),
+                              Text(snapshot.error.toString(),
+                                  style: TextStyle(color: Colors.red),
+                                  textAlign: TextAlign.center),
+                            ],
+                          ));
+                    }
+                    final pets = snapshot.data ?? [];
+                    print('StreamBuilder veri sayısı: ${pets.length}');
+                    if (pets.isEmpty) {
+                      return Center(
+                          child: Text('Hiç ilan yok',
+                              style: TextStyle(color: Colors.white)));
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: pets.length,
+                      itemBuilder: (context, index) {
+                        final pet = pets[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PetDetailScreen(pet: pet),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(12),
+                                  ),
+                                  child: Image.network(
+                                    pet.imageUrl,
                                     height: 120,
-                                    color: Colors.grey[800],
-                                    child: const Icon(
-                                      Icons.pets,
-                                      color: Colors.white38,
-                                      size: 40,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        Container(
+                                      height: 120,
+                                      color: Colors.grey[800],
+                                      child: const Icon(
+                                        Icons.pets,
+                                        color: Colors.white38,
+                                        size: 40,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      pet.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${pet.age} yaş',
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          CityUtils.getCityNameFromPlate(
-                                              pet.location),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 14,
-                                          ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        pet.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        if (pet.isUrgent)
-                                          const Icon(
-                                            Icons.warning,
-                                            color: Colors.redAccent,
-                                            size: 18,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${pet.age} yaş',
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            CityUtils.getCityNameFromPlate(
+                                                pet.location),
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 14,
+                                            ),
                                           ),
-                                      ],
-                                    ),
-                                  ],
+                                          if (pet.isUrgent)
+                                            const Icon(
+                                              Icons.warning,
+                                              color: Colors.redAccent,
+                                              size: 18,
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ],

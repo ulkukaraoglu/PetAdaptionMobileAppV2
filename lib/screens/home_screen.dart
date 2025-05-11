@@ -11,17 +11,24 @@ import '../models/pet.dart';
 import '../utils/city_utils.dart';
 import 'pet_detail_screen.dart';
 import 'chat_list_screen.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/pet_card.dart';
+import '../services/pet_service.dart';
+import 'add_pet_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
   @override
-  _HomeScreenState createState() => _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Renk tanımlamaları
-  final Color primaryOrange = Color(0xFFFF8C00);
-  final Color darkGrey = Color(0xFF333333);
-  final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
+  final PetService _petService = PetService();
+  List<Pet> _pets = [];
+  bool _isLoading = true;
+  final Color darkGrey = const Color(0xFF2C2C2C);
+  final Color primaryOrange = const Color(0xFFFF6B00);
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // --- Filtre state değişkenleri ---
@@ -30,31 +37,27 @@ class _HomeScreenState extends State<HomeScreen> {
   String location = '';
   bool urgentOnly = false;
 
-  Stream<List<Pet>> get petsStream {
+  @override
+  void initState() {
+    super.initState();
+    _loadPets();
+  }
+
+  Future<void> _loadPets() async {
+    setState(() => _isLoading = true);
     try {
-      print('Firestore bağlantısı başlatılıyor...');
-      return FirebaseFirestore.instance
-          .collection('pets')
-          .orderBy('createdAt', descending: true)
-          .snapshots()
-          .map((snapshot) {
-            try {
-              print('Döküman sayısı: ${snapshot.docs.length}');
-              final pets = snapshot.docs.map((doc) {
-                print('Döküman ID: ${doc.id}');
-                print('Döküman verisi: ${doc.data()}');
-                return Pet.fromFirestore(doc);
-              }).toList();
-              print('Dönüştürülen pet sayısı: ${pets.length}');
-              return pets;
-            } catch (e) {
-              print('Veri dönüştürme hatası: $e');
-              return <Pet>[];
-            }
-          });
+      final pets = await _petService.getPets();
+      setState(() {
+        _pets = pets;
+        _isLoading = false;
+      });
     } catch (e) {
-      print('Firestore bağlantı hatası: $e');
-      return Stream.value(<Pet>[]);
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pets could not be loaded: $e')),
+        );
+      }
     }
   }
 
@@ -373,218 +376,55 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print('ChatListScreen build edildi');
     return Scaffold(
-      backgroundColor: modalBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Pet Adoption',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        // actions: [
-        //   IconButton(
-        //     icon: Icon(Icons.message, color: Colors.white),
-        //     onPressed: () {
-        //       print('Chat ikonuna basıldı');
-        //       Navigator.of(context, rootNavigator: true).push(
-        //         MaterialPageRoute(builder: (context) => ChatListScreen()),
-        //       );
-        //     },
-        //   ),
-        // ],
+      backgroundColor: darkGrey,
+      appBar: CustomAppBar(
+        title: 'Pet Adoption',
+        showProfileMenu: _showProfileMenu,
+        darkGrey: darkGrey,
+        primaryOrange: primaryOrange,
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Arama ve filtreleme satırı
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  // Arama çubuğu
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Evcil hayvan ara...',
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        prefixIcon:
-                            const Icon(Icons.search, color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Filtreleme butonu
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.filter_list, color: Colors.white),
-                      onPressed: _showFilterBottomSheet,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Evcil hayvan listesi
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  // Stream'i yeniden başlatmak için setState kullanıyoruz
-                  setState(() {});
-                },
-                child: StreamBuilder<List<Pet>>(
-                  stream: petsStream,
-                  builder: (context, snapshot) {
-                    print('StreamBuilder durumu: ${snapshot.connectionState}');
-                    if (snapshot.hasError) {
-                      print('StreamBuilder hatası: ${snapshot.error}');
-                      return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Bir hata oluştu',
-                                  style: TextStyle(color: Colors.white)),
-                              SizedBox(height: 8),
-                              Text(snapshot.error.toString(),
-                                  style: TextStyle(color: Colors.red),
-                                  textAlign: TextAlign.center),
-                            ],
-                          ));
-                    }
-                    final pets = snapshot.data ?? [];
-                    print('StreamBuilder veri sayısı: ${pets.length}');
-                    if (pets.isEmpty) {
-                      return Center(
-                          child: Text('Hiç ilan yok',
-                              style: TextStyle(color: Colors.white)));
-                    }
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.75,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                      ),
-                      itemCount: pets.length,
-                      itemBuilder: (context, index) {
-                        final pet = pets[index];
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PetDetailScreen(pet: pet),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(12),
-                                  ),
-                                  child: Image.network(
-                                    pet.imageUrl,
-                                    height: 120,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        Container(
-                                      height: 120,
-                                      color: Colors.grey[800],
-                                      child: const Icon(
-                                        Icons.pets,
-                                        color: Colors.white38,
-                                        size: 40,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        pet.name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${pet.age} yaş',
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            CityUtils.getCityNameFromPlate(
-                                                pet.location),
-                                            style: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                          if (pet.isUrgent)
-                                            const Icon(
-                                              Icons.warning,
-                                              color: Colors.redAccent,
-                                              size: 18,
-                                            ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadPets,
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, // 2 sütun
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.7, // Kart oranı, isteğe göre ayarlanabilir
                 ),
+                itemCount: _pets.length,
+                itemBuilder: (context, index) {
+                  final pet = _pets[index];
+                  return PetCard(
+                    pet: pet,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PetDetailScreen(pet: pet),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
-          ],
-        ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: primaryOrange,
+        child: const Icon(Icons.add),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddPetScreen()),
+          );
+        },
       ),
-      floatingActionButton: AddPetFAB(primaryOrange: primaryOrange),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavBar(
-        showProfileMenu: _showProfileMenu,
         darkGrey: darkGrey,
         primaryOrange: primaryOrange,
       ),

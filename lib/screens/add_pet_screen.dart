@@ -113,7 +113,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
           'description': pet.description,
           'imageUrl': pet.imageUrl,
           'isUrgent': pet.isUrgent,
-          'createdAt': Timestamp.fromDate(pet.createdAt),
+          'createdAt': Timestamp.fromDate(pet.createdAt ?? DateTime.now()),
           'ownerId': pet.ownerId,
         });
 

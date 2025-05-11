@@ -5,164 +5,143 @@ import '../models/chat.dart';
 import 'chat_screen.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 import '../widgets/add_pet_fab.dart';
+import '../widgets/custom_app_bar.dart';
+import '../services/chat_service.dart';
+import 'chat_detail_screen.dart';
+import 'add_pet_screen.dart';
 
-class ChatListScreen extends StatelessWidget {
-  final Color primaryOrange = const Color(0xFFFF8C00);
-  final Color darkGrey = const Color(0xFF333333);
-  final Color modalBackground = const Color(0xFF333333);
+class ChatListScreen extends StatefulWidget {
+  const ChatListScreen({Key? key}) : super(key: key);
 
-  ChatListScreen({Key? key}) : super(key: key);
+  @override
+  State<ChatListScreen> createState() => _ChatListScreenState();
+}
+
+class _ChatListScreenState extends State<ChatListScreen> {
+  final ChatService _chatService = ChatService();
+  List<Chat> _chats = [];
+  bool _isLoading = true;
+  final Color darkGrey = const Color(0xFF2C2C2C);
+  final Color primaryOrange = const Color(0xFFFF6B00);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChats();
+  }
+
+  Future<void> _loadChats() async {
+    setState(() => _isLoading = true);
+    try {
+      final chats = await _chatService.getChats();
+      setState(() {
+        _chats = chats;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Chats could not be loaded: $e')),
+        );
+      }
+    }
+  }
+
+  String _formatTime(DateTime? dateTime) {
+    if (dateTime == null) return '';
+    
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays == 0) {
+      // Bugün ise saat:dakika
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      return 'Dün';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} gün önce';
+    } else {
+      // 1 haftadan eski ise gün/ay
+      return '${dateTime.day}.${dateTime.month}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      return Scaffold(
-        backgroundColor: modalBackground,
-        body: Center(child: Text('Giriş yapmalısınız', style: TextStyle(color: Colors.white))),
-      );
-    }
     return Scaffold(
-      backgroundColor: modalBackground,
+      backgroundColor: darkGrey,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text(
-          'Sohbetler',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+          'Mesajlar',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('chats')
-            .where('users', arrayContains: currentUser.uid)
-            .orderBy('lastMessageTime', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            print('ChatListScreen hata: ${snapshot.error}');
-            return Center(child: Text('Bir hata oluştu', style: TextStyle(color: Colors.white)));
-          }
-          final chatDocs = snapshot.data?.docs ?? [];
-          if (chatDocs.isEmpty) {
-            return Center(child: Text('Hiç sohbetiniz yok', style: TextStyle(color: Colors.white70)));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemCount: chatDocs.length,
-            itemBuilder: (context, index) {
-              final data = chatDocs[index].data() as Map<String, dynamic>;
-              final chat = Chat.fromFirestore(data, chatDocs[index].id);
-              final otherUserId = chat.users.firstWhere((id) => id != currentUser.uid, orElse: () => '');
-
-              return FutureBuilder<QueryDocumentSnapshot<Map<String, dynamic>>?>(
-                future: FirebaseFirestore.instance
-                    .collection('users')
-                    .where('uid', isEqualTo: otherUserId)
-                    .limit(1)
-                    .get()
-                    .then((q) => q.docs.isNotEmpty ? q.docs.first : null),
-                builder: (context, userSnapshot) {
-                  String userName = otherUserId;
-                  String? photoUrl;
-                  if (userSnapshot.hasData && userSnapshot.data != null) {
-                    final userData = userSnapshot.data!.data() as Map<String, dynamic>;
-                    userName = userData['name'] ?? otherUserId;
-                    photoUrl = userData['photoURL'];
-                  }
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(chatId: chat.id, otherUserId: otherUserId),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadChats,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _chats.length,
+                itemBuilder: (context, index) {
+                  final chat = _chats[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: (chat.otherUserProfilePic.isNotEmpty)
+                            ? NetworkImage(chat.otherUserProfilePic)
+                            : null,
+                        child: (chat.otherUserProfilePic.isEmpty)
+                            ? const Icon(Icons.person)
+                            : null,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: primaryOrange.withOpacity(0.8),
-                            backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
-                                ? NetworkImage(photoUrl)
-                                : null,
-                            child: (photoUrl == null || photoUrl.isEmpty)
-                                ? Icon(Icons.person, color: Colors.white)
-                                : null,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  chat.lastMessage,
-                                  style: const TextStyle(color: Colors.white70, fontSize: 15),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            chat.lastMessageTime != null
-                                ? _formatTime(chat.lastMessageTime)
-                                : '',
-                            style: const TextStyle(color: Colors.white54, fontSize: 13),
-                          ),
-                        ],
+                      title: Text(
+                        chat.otherUserName,
+                        style: const TextStyle(color: Colors.white),
                       ),
+                      subtitle: Text(
+                        chat.lastMessage,
+                        style: const TextStyle(color: Colors.white70),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Text(
+                        _formatTime(chat.lastMessageTime),
+                        style: const TextStyle(color: Colors.white54),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatDetailScreen(chat: chat),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
-              );
-            },
+              ),
+            ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: primaryOrange,
+        child: const Icon(Icons.add),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddPetScreen()),
           );
         },
       ),
-      floatingActionButton: AddPetFAB(primaryOrange: primaryOrange),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavBar(
-        showProfileMenu: () {},
         darkGrey: darkGrey,
         primaryOrange: primaryOrange,
       ),
     );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final now = DateTime.now();
-    if (now.difference(dateTime).inDays == 0) {
-      // Bugün ise saat:dakika
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}' ;
-    } else {
-      // Değilse gün/ay
-      return '${dateTime.day}.${dateTime.month}';
-    }
   }
 } 

@@ -28,21 +28,61 @@ class Pet {
   });
 
   factory Pet.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
+    
+    // Handle different types of createdAt field
+    DateTime createdAt;
+    final createdAtData = data['createdAt'];
+    if (createdAtData is Timestamp) {
+      createdAt = createdAtData.toDate();
+    } else if (createdAtData is String) {
+      try {
+        createdAt = DateTime.parse(createdAtData);
+      } catch (e) {
+        createdAt = DateTime.now();
+      }
+    } else {
+      createdAt = DateTime.now();
+    }
+
+    // Handle location as int or String
+    String location;
+    final locationData = data['location'];
+    if (locationData is int) {
+      location = locationData.toString();
+    } else if (locationData is String) {
+      location = locationData;
+    } else {
+      location = '';
+    }
+
     return Pet(
       id: doc.id,
       name: data['name'] ?? '',
       type: data['type'] ?? '',
       breed: data['breed'] ?? '',
       age: data['age'] ?? 0,
-      location: data['location'] != null ? data['location'].toString() : '',
+      location: location,
       description: data['description'] ?? '',
       imageUrl: data['imageUrl'] ?? '',
       isUrgent: data['isUrgent'] ?? false,
-      createdAt: data['createdAt'] is String
-          ? DateTime.parse(data['createdAt'])
-          : (data['createdAt'] as Timestamp).toDate(),
-      ownerId: data['ownerId'] ?? data['userId'] ?? '',
+      createdAt: createdAt,
+      ownerId: data['ownerId'] ?? '',
     );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'type': type,
+      'breed': breed,
+      'age': age,
+      'location': location,
+      'description': description,
+      'imageUrl': imageUrl,
+      'isUrgent': isUrgent,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'ownerId': ownerId,
+    };
   }
 }

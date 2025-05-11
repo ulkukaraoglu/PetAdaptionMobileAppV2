@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import '../screens/chat_list_screen.dart';
 import '../screens/home_screen.dart';
+import '../screens/my_pets_screen.dart';
+import '../screens/profile_screen.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
-  final Function showProfileMenu;
   final Color darkGrey;
   final Color primaryOrange;
 
   const CustomBottomNavBar({
     Key? key,
-    required this.showProfileMenu,
     required this.darkGrey,
     required this.primaryOrange,
   }) : super(key: key);
@@ -36,8 +36,13 @@ class CustomBottomNavBar extends StatelessWidget {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.favorite, color: Colors.white),
-              onPressed: () {},
+              icon: const Icon(Icons.list_alt, color: Colors.white),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MyPetsScreen()),
+                );
+              },
             ),
             const SizedBox(width: 40), // FAB için boşluk
             IconButton(
@@ -51,7 +56,12 @@ class CustomBottomNavBar extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.person, color: Colors.white),
-              onPressed: () => showProfileMenu(),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                );
+              },
             ),
           ],
         ),

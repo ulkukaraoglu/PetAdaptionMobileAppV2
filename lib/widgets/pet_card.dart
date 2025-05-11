@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/pet.dart';
+import '../utils/city_utils.dart';
 
 class PetCard extends StatelessWidget {
   final Pet pet;
@@ -13,47 +14,75 @@ class PetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.all(8),
-      child: InkWell(
-        onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: Image.network(
                 pet.imageUrl,
-                height: 150,
+                height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 120,
+                  color: Colors.grey[800],
+                  child: const Icon(
+                    Icons.pets,
+                    color: Colors.white38,
+                    size: 40,
+                  ),
+                ),
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     pet.name,
-                    style: TextStyle(
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    '${pet.breed} - ${pet.age} yaşında',
-                    style: TextStyle(
-                      color: Colors.grey[600],
+                    '${pet.age} yaş',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 14,
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    pet.location,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        CityUtils.getCityNameFromPlate(pet.location),
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (pet.isUrgent)
+                        const Icon(
+                          Icons.warning,
+                          color: Colors.redAccent,
+                          size: 18,
+                        ),
+                    ],
                   ),
                 ],
               ),

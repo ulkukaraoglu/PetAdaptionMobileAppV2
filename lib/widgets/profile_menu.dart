@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../screens/profile_edit_screen.dart';
+import '../screens/admin_panel_screen.dart';
+import '../screens/notifications_screen.dart';
+import '../services/admin_service.dart';
 
-class ProfileMenu extends StatelessWidget {
+class ProfileMenu extends StatefulWidget {
   final Function handleSignOut;
   final Color darkGrey;
   final Color primaryOrange;
@@ -14,6 +19,83 @@ class ProfileMenu extends StatelessWidget {
     required this.primaryOrange,
     required this.auth,
   }) : super(key: key);
+
+  @override
+  State<ProfileMenu> createState() => _ProfileMenuState();
+}
+
+class _ProfileMenuState extends State<ProfileMenu> {
+  final AdminService _adminService = AdminService();
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final isAdmin = await _adminService.isAdmin();
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+  }
+
+  Future<Map<String, dynamic>> _getUserData() async {
+    final userId = widget.auth.currentUser?.uid;
+    if (userId == null) return {};
+
+    final docRef = FirebaseFirestore.instance.collection('users').doc(userId);
+    final doc = await docRef.get();
+    if (!doc.exists) {
+      final userData = {
+        'createdAt': FieldValue.serverTimestamp(),
+        'displayName': widget.auth.currentUser?.displayName ?? '',
+        'email': widget.auth.currentUser?.email ?? '',
+        'isAdmin': false,
+        'lastLogin': FieldValue.serverTimestamp(),
+        'name': widget.auth.currentUser?.displayName ?? '',
+        'photoURL': widget.auth.currentUser?.photoURL ?? '',
+        'provider': 'email',
+        'uid': userId,
+      };
+      await docRef.set(userData);
+      return userData;
+    }
+    return doc.data() ?? {};
+  }
+
+  void _navigateToProfileEdit(BuildContext context) async {
+    try {
+      // Kullanıcı verilerini al
+      final userData = await _getUserData();
+      
+      // Context'in hala geçerli olduğundan emin ol
+      if (!context.mounted) return;
+      
+      // Önce menüyü kapat
+      Navigator.pop(context);
+      
+      // Profil düzenleme sayfasına yönlendir
+      if (!context.mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProfileEditScreen(userData: userData),
+        ),
+      );
+    } catch (e) {
+      print('Profil düzenleme sayfasına yönlendirme hatası: $e');
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil düzenleme sayfası açılırken bir hata oluştu.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +118,15 @@ class ProfileMenu extends StatelessWidget {
           ListTile(
             leading: CircleAvatar(
               radius: 25,
-              backgroundColor: primaryOrange,
+              backgroundColor: widget.primaryOrange,
               child: const Icon(Icons.person, color: Colors.white, size: 30),
             ),
             title: Text(
-              auth.currentUser?.displayName ?? 'Kullanıcı Adı',
+              widget.auth.currentUser?.displayName ?? 'Kullanıcı Adı',
               style: const TextStyle(color: Colors.white, fontSize: 18),
             ),
             subtitle: Text(
-              auth.currentUser?.email ?? 'E-posta',
+              widget.auth.currentUser?.email ?? 'E-posta',
               style: const TextStyle(color: Colors.white54),
             ),
           ),
@@ -56,17 +138,50 @@ class ProfileMenu extends StatelessWidget {
               'Profili Düzenle',
               style: TextStyle(color: Colors.white),
             ),
+            onTap: () => _navigateToProfileEdit(context),
+          ),
+          const Divider(color: Colors.white24),
+          ListTile(
+            leading: const Icon(Icons.notifications, color: Colors.white),
+            title: const Text(
+              'Bildirimler',
+              style: TextStyle(color: Colors.white),
+            ),
             onTap: () {
-              // Profil düzenleme sayfasına git
-              Navigator.pop(context);
+              Navigator.pop(context); // Menüyü kapat
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationsScreen(),
+                ),
+              );
             },
           ),
+          if (_isAdmin) ...[
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings, color: Colors.white),
+              title: const Text(
+                'Admin Paneli',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Menüyü kapat
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AdminPanelScreen(),
+                  ),
+                );
+              },
+            ),
+          ],
           const Divider(color: Colors.white24),
           // Çıkış yap butonu
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
-            onTap: () => handleSignOut(),
+            onTap: () => widget.handleSignOut(),
           ),
         ],
       ),

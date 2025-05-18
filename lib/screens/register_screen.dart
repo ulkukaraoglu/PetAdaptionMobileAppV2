@@ -87,17 +87,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
           await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        // Firestore'a kullanıcıyı ekle
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .set({
-          'email': userCredential.user!.email,
-          'displayName': userCredential.user!.displayName,
-          'photoURL': userCredential.user!.photoURL,
+        final usersRef = FirebaseFirestore.instance.collection('users');
+        final query = await usersRef.where('email', isEqualTo: userCredential.user!.email).get();
+        final userData = {
+          'createdAt': FieldValue.serverTimestamp(),
+          'displayName': userCredential.user!.displayName ?? '',
+          'email': userCredential.user!.email ?? '',
+          'isAdmin': false,
           'lastLogin': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-
+          'name': userCredential.user!.displayName ?? '',
+          'photoURL': userCredential.user!.photoURL ?? '',
+          'provider': 'google',
+          'uid': userCredential.user!.uid,
+        };
+        if (query.docs.isNotEmpty) {
+          final oldData = query.docs.first.data();
+          userData['isAdmin'] = (oldData.containsKey('isAdmin') && oldData['isAdmin'] == true) ? true : false;
+          await usersRef.doc(query.docs.first.id).set(userData, SetOptions(merge: true));
+        } else {
+          userData['isAdmin'] = false;
+          await usersRef.doc(userCredential.user!.uid).set(userData, SetOptions(merge: true));
+        }
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const AuthWrapper()),
@@ -323,8 +333,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   return;
                                 }
                                 // Kayıt işlemleri
-                                Navigator.pushReplacementNamed(
-                                    context, '/home');
+                                _handleEmailSignUp();
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -424,5 +433,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleEmailSignUp() async {
+    try {
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      final usersRef = FirebaseFirestore.instance.collection('users');
+      final userId = userCredential.user!.uid;
+      final docRef = usersRef.doc(userId);
+      final doc = await docRef.get();
+
+      final userData = {
+        'createdAt': doc.exists ? doc['createdAt'] : FieldValue.serverTimestamp(),
+        'displayName': '',
+        'email': _emailController.text.trim(),
+        'isAdmin': doc.exists ? doc['isAdmin'] : false,
+        'lastLogin': FieldValue.serverTimestamp(),
+        'name': '',
+        'photoURL': '',
+        'provider': 'email',
+        'uid': userId,
+      };
+
+      if (doc.exists) {
+        await docRef.update(userData);
+      } else {
+        await docRef.set(userData);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('Email/şifre ile kayıt olurken hata: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Email/şifre ile kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

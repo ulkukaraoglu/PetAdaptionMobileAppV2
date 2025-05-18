@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../wrapper.dart';
 import '../models/pet.dart';
 import '../services/pet_service.dart';
 import '../widgets/pet_card.dart';
@@ -44,6 +47,44 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
           SnackBar(content: Text('İlanlarınız yüklenemedi: $e')),
         );
       }
+    }
+  }
+
+  // Çıkış yapma fonksiyonu
+  Future<void> _handleSignOut() async {
+    try {
+      // Önce Google oturumunu kontrol et ve kapat
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.disconnect();
+        await googleSignIn.signOut();
+      }
+
+      // Firebase oturumunu kapat
+      await FirebaseAuth.instance.signOut();
+
+      // SharedPreferences'ı temizle
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (!mounted) return;
+
+      // Ana sayfaya yönlendir
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('Çıkış yaparken hata: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -107,6 +148,7 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         darkGrey: darkGrey,
         primaryOrange: primaryOrange,
+        handleSignOut: _handleSignOut,
       ),
     );
   }

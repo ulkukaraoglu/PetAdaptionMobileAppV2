@@ -88,15 +88,28 @@ class _LoginScreenState extends State<LoginScreen> {
           await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (userCredential.user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(userCredential.user!.uid)
-            .set({
-          'email': userCredential.user!.email,
-          'displayName': userCredential.user!.displayName,
-          'photoURL': userCredential.user!.photoURL,
+        final usersRef = FirebaseFirestore.instance.collection('users');
+        final userId = userCredential.user!.uid;
+        final docRef = usersRef.doc(userId);
+        final doc = await docRef.get();
+
+        final userData = {
+          'createdAt': doc.exists ? doc['createdAt'] : FieldValue.serverTimestamp(),
+          'displayName': userCredential.user!.displayName ?? '',
+          'email': userCredential.user!.email ?? '',
+          'isAdmin': doc.exists ? doc['isAdmin'] : false,
           'lastLogin': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+          'name': userCredential.user!.displayName ?? '',
+          'photoURL': userCredential.user!.photoURL ?? '',
+          'provider': 'google',
+          'uid': userId,
+        };
+
+        if (doc.exists) {
+          await docRef.update(userData);
+        } else {
+          await docRef.set(userData);
+        }
       }
     } catch (e) {
       print('Google giriş hatası: $e');

@@ -3,16 +3,36 @@ import '../screens/chat_list_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/my_pets_screen.dart';
 import '../screens/profile_screen.dart';
+import 'profile_menu.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CustomBottomNavBar extends StatelessWidget {
   final Color darkGrey;
   final Color primaryOrange;
+  final Function handleSignOut;
 
   const CustomBottomNavBar({
     Key? key,
     required this.darkGrey,
     required this.primaryOrange,
+    required this.handleSignOut,
   }) : super(key: key);
+
+  void _showProfileMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: darkGrey,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => ProfileMenu(
+        handleSignOut: handleSignOut,
+        darkGrey: darkGrey,
+        primaryOrange: primaryOrange,
+        auth: FirebaseAuth.instance,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,12 +76,7 @@ class CustomBottomNavBar extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.person, color: Colors.white),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                );
-              },
+              onPressed: () => _showProfileMenu(context),
             ),
           ],
         ),

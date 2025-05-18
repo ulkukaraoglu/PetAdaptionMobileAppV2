@@ -11,7 +11,6 @@ import '../models/pet.dart';
 import '../utils/city_utils.dart';
 import 'pet_detail_screen.dart';
 import 'chat_list_screen.dart';
-import '../widgets/custom_app_bar.dart';
 import '../widgets/pet_card.dart';
 import '../services/pet_service.dart';
 import 'add_pet_screen.dart';
@@ -377,56 +376,56 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: darkGrey,
-      appBar: CustomAppBar(
-        title: 'Pet Adoption',
-        showProfileMenu: _showProfileMenu,
-        darkGrey: darkGrey,
-        primaryOrange: primaryOrange,
+      appBar: AppBar(
+        title: const Text('Pet Adoption'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterBottomSheet,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadPets,
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 sütun
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.7, // Kart oranı, isteğe göre ayarlanabilir
-                ),
-                itemCount: _pets.length,
-                itemBuilder: (context, index) {
-                  final pet = _pets[index];
-                  return PetCard(
-                    pet: pet,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PetDetailScreen(pet: pet),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryOrange,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddPetScreen()),
-          );
-        },
+          : _buildPetList(),
+      floatingActionButton: AddPetFAB(
+        primaryOrange: primaryOrange,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavBar(
         darkGrey: darkGrey,
         primaryOrange: primaryOrange,
+        handleSignOut: _handleSignOut,
+      ),
+    );
+  }
+
+  Widget _buildPetList() {
+    return RefreshIndicator(
+      onRefresh: _loadPets,
+      child: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, // 2 sütun
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.7, // Kart oranı, isteğe göre ayarlanabilir
+        ),
+        itemCount: _pets.length,
+        itemBuilder: (context, index) {
+          final pet = _pets[index];
+          return PetCard(
+            pet: pet,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PetDetailScreen(pet: pet),
+                ),
+              );
+            },
+          );
+        },
       ),
     );
   }

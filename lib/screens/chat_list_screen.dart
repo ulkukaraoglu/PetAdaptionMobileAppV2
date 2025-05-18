@@ -5,10 +5,12 @@ import '../models/chat.dart';
 import 'chat_screen.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 import '../widgets/add_pet_fab.dart';
-import '../widgets/custom_app_bar.dart';
 import '../services/chat_service.dart';
 import 'chat_detail_screen.dart';
 import 'add_pet_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../wrapper.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({Key? key}) : super(key: key);
@@ -64,6 +66,44 @@ class _ChatListScreenState extends State<ChatListScreen> {
     } else {
       // 1 haftadan eski ise gün/ay
       return '${dateTime.day}.${dateTime.month}';
+    }
+  }
+
+  // Çıkış yapma fonksiyonu
+  Future<void> _handleSignOut() async {
+    try {
+      // Önce Google oturumunu kontrol et ve kapat
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.disconnect();
+        await googleSignIn.signOut();
+      }
+
+      // Firebase oturumunu kapat
+      await FirebaseAuth.instance.signOut();
+
+      // SharedPreferences'ı temizle
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (!mounted) return;
+
+      // Ana sayfaya yönlendir
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
+        (route) => false,
+      );
+    } catch (e) {
+      print('Çıkış yaparken hata: $e');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Çıkış yapılırken bir hata oluştu. Lütfen tekrar deneyin.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -141,6 +181,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       bottomNavigationBar: CustomBottomNavBar(
         darkGrey: darkGrey,
         primaryOrange: primaryOrange,
+        handleSignOut: _handleSignOut,
       ),
     );
   }

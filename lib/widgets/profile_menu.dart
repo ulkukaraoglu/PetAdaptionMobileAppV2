@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/profile_edit_screen.dart';
 import '../screens/admin_panel_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../screens/eligibility_form_screen.dart';
 import '../services/admin_service.dart';
 
 class ProfileMenu extends StatefulWidget {
@@ -101,68 +102,76 @@ class _ProfileMenuState extends State<ProfileMenu> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Profil başlığı
-          const Text(
-            'Profil',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Profil başlığı
+            const Text(
+              'Profil',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          // Kullanıcı bilgileri
-          ListTile(
-            leading: CircleAvatar(
-              radius: 25,
-              backgroundColor: widget.primaryOrange,
-              child: const Icon(Icons.person, color: Colors.white, size: 30),
+            const SizedBox(height: 20),
+            // Kullanıcı bilgileri
+            ListTile(
+              leading: CircleAvatar(
+                radius: 25,
+                backgroundColor: widget.primaryOrange,
+                backgroundImage: (widget.auth.currentUser?.photoURL != null && widget.auth.currentUser!.photoURL!.isNotEmpty)
+                    ? NetworkImage(widget.auth.currentUser!.photoURL!)
+                    : null,
+                child: (widget.auth.currentUser?.photoURL == null || widget.auth.currentUser!.photoURL!.isEmpty)
+                    ? const Icon(Icons.person, color: Colors.white, size: 30)
+                    : null,
+              ),
+              title: Text(
+                widget.auth.currentUser?.displayName ?? 'Kullanıcı Adı',
+                style: const TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              subtitle: Text(
+                widget.auth.currentUser?.email ?? 'E-posta',
+                style: const TextStyle(color: Colors.white54),
+              ),
             ),
-            title: Text(
-              widget.auth.currentUser?.displayName ?? 'Kullanıcı Adı',
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+            const Divider(color: Colors.white24),
+            // Menü seçenekleri
+            ListTile(
+              leading: const Icon(Icons.edit, color: Colors.white),
+              title: const Text(
+                'Profili Düzenle',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () => _navigateToProfileEdit(context),
             ),
-            subtitle: Text(
-              widget.auth.currentUser?.email ?? 'E-posta',
-              style: const TextStyle(color: Colors.white54),
-            ),
-          ),
-          const Divider(color: Colors.white24),
-          // Menü seçenekleri
-          ListTile(
-            leading: const Icon(Icons.edit, color: Colors.white),
-            title: const Text(
-              'Profili Düzenle',
-              style: TextStyle(color: Colors.white),
-            ),
-            onTap: () => _navigateToProfileEdit(context),
-          ),
-          const Divider(color: Colors.white24),
-          ListTile(
-            leading: const Icon(Icons.notifications, color: Colors.white),
-            title: const Text(
-              'Bildirimler',
-              style: TextStyle(color: Colors.white),
-            ),
-            onTap: () {
-              Navigator.pop(context); // Menüyü kapat
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => NotificationsScreen(),
-                ),
-              );
-            },
-          ),
-          if (_isAdmin) ...[
             const Divider(color: Colors.white24),
             ListTile(
-              leading: const Icon(Icons.admin_panel_settings, color: Colors.white),
+              leading: const Icon(Icons.assignment_turned_in, color: Colors.white),
               title: const Text(
-                'Admin Paneli',
+                'Uygunluk Bilgilerini Güncelle',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () async {
+                final userId = widget.auth.currentUser?.uid;
+                if (userId != null) {
+                  Navigator.pop(context); // Menüyü kapat
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EligibilityFormScreen(userId: userId),
+                    ),
+                  );
+                }
+              },
+            ),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: const Icon(Icons.notifications, color: Colors.white),
+              title: const Text(
+                'Bildirimler',
                 style: TextStyle(color: Colors.white),
               ),
               onTap: () {
@@ -170,20 +179,39 @@ class _ProfileMenuState extends State<ProfileMenu> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AdminPanelScreen(),
+                    builder: (context) => NotificationsScreen(),
                   ),
                 );
               },
             ),
+            if (_isAdmin) ...[
+              const Divider(color: Colors.white24),
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings, color: Colors.white),
+                title: const Text(
+                  'Admin Paneli',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(context); // Menüyü kapat
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminPanelScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+            const Divider(color: Colors.white24),
+            // Çıkış yap butonu
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
+              onTap: () => widget.handleSignOut(),
+            ),
           ],
-          const Divider(color: Colors.white24),
-          // Çıkış yap butonu
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
-            onTap: () => widget.handleSignOut(),
-          ),
-        ],
+        ),
       ),
     );
   }

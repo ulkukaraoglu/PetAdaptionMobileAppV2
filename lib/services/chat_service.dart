@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/chat.dart';
+import '../models/message.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -59,7 +60,7 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: true)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs
@@ -78,7 +79,8 @@ class ChatService {
       final messageData = {
         'senderId': currentUser.uid,
         'text': message,
-        'timestamp': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false,
       };
 
       await _firestore
@@ -133,5 +135,44 @@ class ChatService {
       print('Error creating chat: $e');
       rethrow;
     }
+  }
+
+  Future<void> markMessagesAsRead(String chatId) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      final messages = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: currentUser.uid)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      final batch = _firestore.batch();
+      for (var doc in messages.docs) {
+        batch.update(doc.reference, {'isRead': true});
+      }
+      await batch.commit();
+    } catch (e) {
+      print('Error marking messages as read: $e');
+    }
+  }
+
+  Stream<int> getUnreadMessageCount(String chatId) {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return Stream.value(0);
+
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .where('isRead', isEqualTo: false)
+        .where('senderId', isNotEqualTo: currentUser.uid)
+        .orderBy('senderId')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 } 

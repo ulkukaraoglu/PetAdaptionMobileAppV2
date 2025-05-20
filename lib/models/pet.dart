@@ -11,7 +11,7 @@ class Pet {
   final String imageUrl;
   final bool isUrgent;
   final DateTime createdAt;
-  final String ownerId;
+  final String uid;
 
   Pet({
     required this.id,
@@ -24,7 +24,7 @@ class Pet {
     required this.imageUrl,
     required this.isUrgent,
     required this.createdAt,
-    required this.ownerId,
+    required this.uid,
   });
 
   factory Pet.fromFirestore(DocumentSnapshot doc) {
@@ -67,7 +67,7 @@ class Pet {
       imageUrl: data['imageUrl'] ?? '',
       isUrgent: data['isUrgent'] ?? false,
       createdAt: createdAt,
-      ownerId: data['ownerId'] ?? '',
+      uid: data['uid'] ?? '',
     );
   }
 
@@ -82,7 +82,7 @@ class Pet {
       'imageUrl': imageUrl,
       'isUrgent': isUrgent,
       'createdAt': Timestamp.fromDate(createdAt),
-      'ownerId': ownerId,
+      'uid': uid,
     };
   }
 }

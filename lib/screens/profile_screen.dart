@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'profile_edit_screen.dart';
+import 'eligibility_form_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -137,6 +138,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.info,
                   ),
                   const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final userId = FirebaseAuth.instance.currentUser?.uid;
+                      if (userId != null) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EligibilityFormScreen(userId: userId),
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryOrange,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'Uygunluk Bilgilerini Güncelle',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () async {
                       await FirebaseAuth.instance.signOut();

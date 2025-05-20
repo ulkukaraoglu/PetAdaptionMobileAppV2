@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
 import '../models/pet.dart';
 import '../models/city.dart';
+import '../services/pet_validation_service.dart';
 
 class AddPetScreen extends StatefulWidget {
   const AddPetScreen({Key? key}) : super(key: key);
@@ -26,6 +27,9 @@ class _AddPetScreenState extends State<AddPetScreen> {
   int? _selectedCityPlateCode;
   List<XFile>? _imageFiles;
   bool _isLoading = false;
+  bool _isValidating = false;
+  String? _breedError;
+  final _validationService = PetValidationService();
 
   // Renk tanımlamaları
   final Color primaryOrange = Color(0xFFFF8C00);
@@ -33,13 +37,61 @@ class _AddPetScreenState extends State<AddPetScreen> {
   final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
 
   @override
+  void initState() {
+    super.initState();
+    _typeController.addListener(_onTypeChanged);
+    _breedController.addListener(_onBreedChanged);
+  }
+
+  @override
   void dispose() {
+    _typeController.removeListener(_onTypeChanged);
+    _breedController.removeListener(_onBreedChanged);
     _nameController.dispose();
     _typeController.dispose();
     _breedController.dispose();
     _ageController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _onTypeChanged() {
+    if (_breedController.text.isNotEmpty) {
+      _validateBreed();
+    }
+  }
+
+  void _onBreedChanged() {
+    if (_breedController.text.isNotEmpty && _typeController.text.isNotEmpty) {
+      _validateBreed();
+    }
+  }
+
+  Future<void> _validateBreed() async {
+    if (_typeController.text.isEmpty || _breedController.text.isEmpty) return;
+
+    setState(() {
+      _isValidating = true;
+      _breedError = null;
+    });
+
+    try {
+      final isValid = await _validationService.validatePetBreed(
+        _typeController.text,
+        _breedController.text,
+      );
+
+      setState(() {
+        _isValidating = false;
+        if (!isValid) {
+          _breedError = 'Girilen cins, seçilen türle uyuşmuyor';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isValidating = false;
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -74,11 +126,26 @@ class _AddPetScreenState extends State<AddPetScreen> {
     if (_formKey.currentState!.validate() &&
         _selectedImage != null &&
         _selectedCityPlateCode != null) {
+      
+      // Tür ve cins son kontrol
+      if (_breedError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lütfen geçerli bir tür ve cins kombinasyonu girin'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       setState(() {
         _isLoading = true;
       });
+
       try {
-        // Görseli Firebase Storage'a yükle
+        // Normalize type (köpek/kedi)
+        final normalizedType = _validationService.getNormalizedType(_typeController.text);
+
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('pet_images')
@@ -91,9 +158,9 @@ class _AddPetScreenState extends State<AddPetScreen> {
             .firstWhere((c) => c.plateCode == _selectedCityPlateCode);
 
         final pet = Pet(
-          id: '', // Will be set by Firestore
+          id: '',
           name: _nameController.text,
-          type: _typeController.text,
+          type: normalizedType,
           breed: _breedController.text,
           age: int.parse(_ageController.text),
           location: city.name,
@@ -101,7 +168,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
           imageUrl: imageUrl,
           isUrgent: _isUrgent,
           createdAt: DateTime.now(),
-          ownerId: FirebaseAuth.instance.currentUser!.uid,
+          uid: FirebaseAuth.instance.currentUser!.uid,
         );
 
         await FirebaseFirestore.instance.collection('pets').add({
@@ -109,20 +176,19 @@ class _AddPetScreenState extends State<AddPetScreen> {
           'type': pet.type,
           'breed': pet.breed,
           'age': pet.age,
-          'location': city.plateCode, // şehir plaka kodu
+          'location': city.plateCode,
           'description': pet.description,
           'imageUrl': pet.imageUrl,
           'isUrgent': pet.isUrgent,
-          'createdAt': Timestamp.fromDate(pet.createdAt ?? DateTime.now()),
-          'ownerId': pet.ownerId,
+          'createdAt': Timestamp.fromDate(pet.createdAt),
+          'uid': pet.uid,
         });
 
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text('İlan eklenirken bir hata oluştu. Lütfen tekrar deneyin.'),
+            content: Text('İlan eklenirken bir hata oluştu. Lütfen tekrar deneyin.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -261,34 +327,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 ),
               ),
               SizedBox(height: 8),
-              TextFormField(
-                controller: _breedController,
-                style: TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Cins',
-                  labelStyle: TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.1),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.white24),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.white24),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: primaryOrange, width: 2),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Lütfen bir cins girin';
-                  }
-                  return null;
-                },
-              ),
+              _buildBreedField(),
               SizedBox(height: 8),
               TextFormField(
                 controller: _ageController,
@@ -449,5 +488,76 @@ class _AddPetScreenState extends State<AddPetScreen> {
                   ),
       ),
     );
+  }
+
+  Widget _buildBreedField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _breedController,
+          style: TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'Cins',
+            labelStyle: TextStyle(color: Colors.white54),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.1),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: primaryOrange, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.red),
+            ),
+            suffixIcon: _isValidating
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white54),
+                    ),
+                  )
+                : _breedError == null && _breedController.text.isNotEmpty
+                    ? Icon(Icons.check_circle, color: Colors.green)
+                    : null,
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Lütfen bir cins girin';
+            }
+            if (_breedError != null) {
+              return _breedError;
+            }
+            return null;
+          },
+        ),
+        if (_breedError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, left: 12),
+            child: Text(
+              _breedError!,
+              style: TextStyle(color: Colors.red[300], fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Tür TextField'ı için validator
+  String? _validateType(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Lütfen bir tür girin';
+    }
+    return null;
   }
 }

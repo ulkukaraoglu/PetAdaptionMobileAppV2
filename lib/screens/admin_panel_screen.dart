@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'admin_reports_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   bool _isLoading = true;
   final Color darkGrey = const Color(0xFF2C2C2C);
   final Color primaryOrange = const Color(0xFFFF6B00);
+  String _searchTerm = '';
 
   @override
   void initState() {
@@ -165,7 +167,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: darkGrey,
         appBar: AppBar(
@@ -180,6 +182,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             tabs: [
               Tab(text: 'Kullanıcılar'),
               Tab(text: 'İlanlar'),
+              Tab(text: 'Raporlar'),
             ],
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white54,
@@ -234,87 +237,120 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     ),
                   ),
             // İlanlar Tab
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('pets')
-                  .orderBy('createdAt', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Bir hata oluştu: ${snapshot.error}'),
-                  );
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                final pets = snapshot.data!.docs;
-
-                if (pets.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'Henüz ilan yok',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: pets.length,
-                  itemBuilder: (context, index) {
-                    final pet = pets[index].data() as Map<String, dynamic>;
-                    final petId = pets[index].id;
-
-                    return Card(
-                      color: Colors.white.withOpacity(0.1),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: ListTile(
-                        leading: pet['imageUrl'] != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  pet['imageUrl'],
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            : const Icon(Icons.pets, size: 40),
-                        title: Text(
-                          pet['name'] ?? 'İsimsiz',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        subtitle: pet['ownerId'] != null
-                            ? FutureBuilder<DocumentSnapshot>(
-                                future: FirebaseFirestore.instance.collection('users').doc(pet['ownerId']).get(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState == ConnectionState.waiting) {
-                                    return const Text('Sahibi: Yükleniyor...', style: TextStyle(color: Colors.white70));
-                                  }
-                                  if (!snapshot.hasData || !snapshot.data!.exists) {
-                                    return const Text('Sahibi: Bilinmiyor', style: TextStyle(color: Colors.white70));
-                                  }
-                                  final userData = snapshot.data!.data() as Map<String, dynamic>;
-                                  final userName = userData['name'] ?? userData['displayName'] ?? 'Bilinmiyor';
-                                  return Text('Sahibi: $userName', style: const TextStyle(color: Colors.white70));
-                                },
-                              )
-                            : const Text('Sahibi: Bilinmiyor', style: TextStyle(color: Colors.white70)),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deletePet(petId, pet['userId']),
-                        ),
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'İlanlarda ara...',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      prefixIcon: Icon(Icons.search, color: primaryOrange),
+                      filled: true,
+                      fillColor: Colors.white10,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
-                    );
-                  },
-                );
-              },
+                      contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    ),
+                    style: TextStyle(color: Colors.white),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchTerm = val.trim().toLowerCase();
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('pets')
+                        .orderBy('createdAt', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text('Bir hata oluştu: \\${snapshot.error}'),
+                        );
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      final pets = snapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final name = (data['name'] ?? '').toString().toLowerCase();
+                        final desc = (data['description'] ?? '').toString().toLowerCase();
+                        return _searchTerm.isEmpty ||
+                            name.contains(_searchTerm) ||
+                            desc.contains(_searchTerm);
+                      }).toList();
+                      if (pets.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Aramanıza uygun ilan yok',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: pets.length,
+                        itemBuilder: (context, index) {
+                          final pet = pets[index].data() as Map<String, dynamic>;
+                          final petId = pets[index].id;
+                          return Card(
+                            color: Colors.white.withOpacity(0.1),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            child: ListTile(
+                              leading: pet['imageUrl'] != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        pet['imageUrl'],
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : const Icon(Icons.pets, size: 40),
+                              title: Text(
+                                pet['name'] ?? 'İsimsiz',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: pet['uid'] != null
+                                  ? FutureBuilder<DocumentSnapshot>(
+                                      future: FirebaseFirestore.instance.collection('users').doc(pet['uid']).get(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const Text('Sahibi: Yükleniyor...', style: TextStyle(color: Colors.white70));
+                                        }
+                                        if (!snapshot.hasData || !snapshot.data!.exists) {
+                                          return const Text('Sahibi: Bilinmiyor', style: TextStyle(color: Colors.white70));
+                                        }
+                                        final userData = snapshot.data!.data() as Map<String, dynamic>;
+                                        final userName = userData['name'] ?? userData['displayName'] ?? 'Bilinmiyor';
+                                        return Text('Sahibi: $userName', style: const TextStyle(color: Colors.white70));
+                                      },
+                                    )
+                                  : const Text('Sahibi: Bilinmiyor', style: TextStyle(color: Colors.white70)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => _deletePet(petId, pet['uid']),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
+            // Raporlar Tab
+            AdminReportsScreen(),
           ],
         ),
       ),

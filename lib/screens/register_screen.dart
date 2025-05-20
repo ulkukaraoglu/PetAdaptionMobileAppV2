@@ -5,6 +5,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../wrapper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'eligibility_form_screen.dart';
+import '../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -13,23 +15,21 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _email = '';
-  String _password = '';
-  String _confirmPassword = '';
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  // Şifre kontrolü için TextEditingController'lar
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  // Renk tanımlamaları
+  final Color primaryOrange = Color(0xFFFF8C00);
+  final Color darkGrey = Color(0xFF333333);
+  final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
 
-  // Controller'ları ekleyelim
-  final TextEditingController _emailController = TextEditingController();
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -37,34 +37,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _clearForm() {
     _emailController.clear();
     _passwordController.clear();
-    _confirmPasswordController.clear();
-    // Form durumunu sıfırla
     _formKey.currentState?.reset();
   }
 
-  // Renk tanımlamaları (login screen ile aynı)
-  final Color primaryOrange = Color(0xFFFF8C00);
-  final Color darkGrey = Color(0xFF333333);
-  final Color modalBackground = Color(0xFF333333).withOpacity(0.95);
-  final Color inputTextColor = Colors.white70;
-  final Color placeholderColor = Colors.white38;
+  Future<void> _registerWithEmailAndPassword() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Create user with email and password
+        UserCredential userCredential = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        // Create user document in Firestore
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'email': _emailController.text,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        if (!mounted) return;
+
+        // Navigate to eligibility form
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => EligibilityFormScreen(
+              userId: userCredential.user!.uid,
+            ),
+          ),
+        );
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Registration failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   // Google ile kayıt fonksiyonu
   Future<void> _handleGoogleSignUp() async {
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: [
-          'email',
-          'profile',
-        ],
+        scopes: ['email', 'profile'],
       );
 
-      // Mevcut oturumu kontrol et ve varsa kapat
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
       }
 
-      // Yeni oturum aç
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -72,23 +102,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      // Kimlik doğrulama bilgilerini al
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Firebase credential oluştur
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Firebase ile giriş yap
-      final UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
 
       if (userCredential.user != null) {
         final usersRef = FirebaseFirestore.instance.collection('users');
         final query = await usersRef.where('email', isEqualTo: userCredential.user!.email).get();
+        
         final userData = {
           'createdAt': FieldValue.serverTimestamp(),
           'displayName': userCredential.user!.displayName ?? '',
@@ -100,6 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'provider': 'google',
           'uid': userCredential.user!.uid,
         };
+
         if (query.docs.isNotEmpty) {
           final oldData = query.docs.first.data();
           userData['isAdmin'] = (oldData.containsKey('isAdmin') && oldData['isAdmin'] == true) ? true : false;
@@ -108,20 +134,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
           userData['isAdmin'] = false;
           await usersRef.doc(userCredential.user!.uid).set(userData, SetOptions(merge: true));
         }
+
         if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const AuthWrapper()),
-          (route) => false,
+        
+        // Google ile giriş yapan kullanıcıyı da uygunluk formuna yönlendir
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => EligibilityFormScreen(
+              userId: userCredential.user!.uid,
+            ),
+          ),
         );
       }
     } catch (e) {
       print('Google ile kayıt olurken hata: $e');
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Google ile kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.'),
+          content: Text('Google ile kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.'),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 2),
         ),
@@ -194,13 +224,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: primaryOrange, width: 2),
+                              borderSide: BorderSide(color: primaryOrange, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           ),
                           style: TextStyle(color: Colors.white),
                           keyboardType: TextInputType.emailAddress,
@@ -208,14 +236,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             if (value == null || value.isEmpty) {
                               return 'E-posta adresi boş bırakılamaz';
                             }
-                            final emailRegex =
-                                RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
                             if (!emailRegex.hasMatch(value)) {
                               return 'Geçerli bir e-posta adresi giriniz';
                             }
                             return null;
                           },
-                          onSaved: (value) => _email = value!,
                         ),
                         SizedBox(height: 16),
                         Text(
@@ -245,13 +271,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: primaryOrange, width: 2),
+                              borderSide: BorderSide(color: primaryOrange, width: 2),
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           ),
                           style: TextStyle(color: Colors.white),
                           obscureText: true,
@@ -264,91 +288,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                             return null;
                           },
-                          onSaved: (value) => _password = value!,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'Şifre Tekrar',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          decoration: InputDecoration(
-                            hintText: 'Şifrenizi tekrar girin',
-                            hintStyle: TextStyle(color: Colors.white38),
-                            errorStyle: TextStyle(
-                              color: Colors.red[400],
-                              fontSize: 12,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: Colors.white24),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide:
-                                  BorderSide(color: primaryOrange, width: 2),
-                            ),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.05),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 16),
-                          ),
-                          style: TextStyle(color: Colors.white),
-                          obscureText: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Şifrenizi tekrar giriniz';
-                            }
-                            if (value != _passwordController.text) {
-                              return 'Şifreler eşleşmiyor';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) => _confirmPassword = value!,
                         ),
                         SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
-                          height: 48,
                           child: ElevatedButton(
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                _formKey.currentState!.save();
-                                if (_password != _confirmPassword) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Şifreler eşleşmiyor!'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
-                                  return;
-                                }
-                                // Kayıt işlemleri
-                                _handleEmailSignUp();
-                              }
-                            },
+                            onPressed: _registerWithEmailAndPassword,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryOrange,
+                              padding: EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              elevation: 0,
                             ),
                             child: Text(
                               'Kayıt Ol',
                               style: TextStyle(
-                                color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -389,8 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                         ),
-                        SizedBox(
-                            height: 100), // Login linki için boşluk bırakıyoruz
+                        SizedBox(height: 100),
                       ],
                     ),
                   ),
@@ -433,55 +390,5 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _handleEmailSignUp() async {
-    try {
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-
-      final usersRef = FirebaseFirestore.instance.collection('users');
-      final userId = userCredential.user!.uid;
-      final docRef = usersRef.doc(userId);
-      final doc = await docRef.get();
-
-      final userData = {
-        'createdAt': doc.exists ? doc['createdAt'] : FieldValue.serverTimestamp(),
-        'displayName': '',
-        'email': _emailController.text.trim(),
-        'isAdmin': doc.exists ? doc['isAdmin'] : false,
-        'lastLogin': FieldValue.serverTimestamp(),
-        'name': '',
-        'photoURL': '',
-        'provider': 'email',
-        'uid': userId,
-      };
-
-      if (doc.exists) {
-        await docRef.update(userData);
-      } else {
-        await docRef.set(userData);
-      }
-
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AuthWrapper()),
-        (route) => false,
-      );
-    } catch (e) {
-      print('Email/şifre ile kayıt olurken hata: $e');
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Email/şifre ile kayıt olurken bir hata oluştu. Lütfen tekrar deneyin.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 }

@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Color darkGrey = const Color(0xFF2C2C2C);
   final Color primaryOrange = const Color(0xFFFF6B00);
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  String _searchTerm = '';
 
   // --- Filtre state değişkenleri ---
   String? selectedType; // 'Köpek', 'Kedi', 'Kuş', 'Diğer'
@@ -376,14 +377,27 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: darkGrey,
       appBar: AppBar(
-        title: const Text('Pet Adoption'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterBottomSheet,
-          ),
-        ],
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 30,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Pet Adoption',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -401,31 +415,94 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPetList() {
+    final filteredPets = _pets.where((pet) {
+      final name = pet.name.toLowerCase();
+      final desc = pet.description.toLowerCase();
+      return _searchTerm.isEmpty ||
+          name.contains(_searchTerm) ||
+          desc.contains(_searchTerm);
+    }).toList();
     return RefreshIndicator(
       onRefresh: _loadPets,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // 2 sütun
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.7, // Kart oranı, isteğe göre ayarlanabilir
-        ),
-        itemCount: _pets.length,
-        itemBuilder: (context, index) {
-          final pet = _pets[index];
-          return PetCard(
-            pet: pet,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PetDetailScreen(pet: pet),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'İlanlarda ara...',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      prefixIcon: Icon(Icons.search, color: primaryOrange),
+                      filled: true,
+                      fillColor: Colors.white10,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                    ),
+                    style: TextStyle(color: Colors.white),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchTerm = val.trim().toLowerCase();
+                      });
+                    },
+                  ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(width: 8),
+                Container(
+                  height: 48,
+                  width: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.filter_list, color: primaryOrange),
+                    tooltip: 'Filtrele',
+                    onPressed: _showFilterBottomSheet,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: filteredPets.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Aramanıza uygun ilan yok',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 0.7,
+                    ),
+                    itemCount: filteredPets.length,
+                    itemBuilder: (context, index) {
+                      final pet = filteredPets[index];
+                      return PetCard(
+                        pet: pet,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PetDetailScreen(pet: pet),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

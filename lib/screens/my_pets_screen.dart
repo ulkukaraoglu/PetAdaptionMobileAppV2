@@ -9,6 +9,7 @@ import '../widgets/pet_card.dart';
 import 'pet_detail_screen.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 import 'add_pet_screen.dart';
+import '../widgets/add_pet_fab.dart';
 
 class MyPetsScreen extends StatefulWidget {
   const MyPetsScreen({Key? key}) : super(key: key);
@@ -37,7 +38,7 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
       if (userId == null) return;
       final pets = await _petService.getPets();
       setState(() {
-        _myPets = pets.where((pet) => pet.ownerId == userId).toList();
+        _myPets = pets.where((pet) => pet.uid == userId).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -134,15 +135,8 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryOrange,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddPetScreen()),
-          );
-        },
+      floatingActionButton: AddPetFAB(
+        primaryOrange: primaryOrange,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavBar(

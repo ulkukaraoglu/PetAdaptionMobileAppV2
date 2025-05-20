@@ -109,6 +109,16 @@ class NotificationsScreen extends StatelessWidget {
                         ? Colors.red
                         : primaryOrange,
                   ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red),
+                    tooltip: 'Sil',
+                    onPressed: () async {
+                      await FirebaseFirestore.instance
+                          .collection('notifications')
+                          .doc(notifications[index].id)
+                          .delete();
+                    },
+                  ),
                 ),
               );
             },

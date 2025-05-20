@@ -5,12 +5,14 @@ class Message {
   final String senderId;
   final String text;
   final DateTime createdAt;
+  final bool isRead;
 
   Message({
     required this.id,
     required this.senderId,
     required this.text,
     required this.createdAt,
+    this.isRead = false,
   });
 
   factory Message.fromFirestore(Map<String, dynamic> data, String id) {
@@ -19,6 +21,7 @@ class Message {
       senderId: data['senderId'] ?? '',
       text: data['text'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      isRead: data['isRead'] ?? false,
     );
   }
 
@@ -27,6 +30,7 @@ class Message {
       'senderId': senderId,
       'text': text,
       'createdAt': createdAt,
+      'isRead': isRead,
     };
   }
 }

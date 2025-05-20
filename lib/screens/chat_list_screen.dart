@@ -131,35 +131,74 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   final chat = _chats[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: (chat.otherUserProfilePic.isNotEmpty)
-                            ? NetworkImage(chat.otherUserProfilePic)
-                            : null,
-                        child: (chat.otherUserProfilePic.isEmpty)
-                            ? const Icon(Icons.person)
-                            : null,
-                      ),
-                      title: Text(
-                        chat.otherUserName,
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      subtitle: Text(
-                        chat.lastMessage,
-                        style: const TextStyle(color: Colors.white70),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Text(
-                        _formatTime(chat.lastMessageTime),
-                        style: const TextStyle(color: Colors.white54),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChatDetailScreen(chat: chat),
+                    child: StreamBuilder<int>(
+                      stream: _chatService.getUnreadMessageCount(chat.id),
+                      builder: (context, snapshot) {
+                        final unreadCount = snapshot.data ?? 0;
+                        return ListTile(
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                backgroundImage: (chat.otherUserProfilePic.isNotEmpty)
+                                    ? NetworkImage(chat.otherUserProfilePic)
+                                    : null,
+                                child: (chat.otherUserProfilePic.isEmpty)
+                                    ? const Icon(Icons.person)
+                                    : null,
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: primaryOrange,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      unreadCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
+                          title: Text(
+                            chat.otherUserName,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          subtitle: Text(
+                            chat.lastMessage,
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontWeight: unreadCount > 0 ? FontWeight.w500 : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Text(
+                            _formatTime(chat.lastMessageTime),
+                            style: TextStyle(
+                              color: unreadCount > 0 ? primaryOrange : Colors.white54,
+                              fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatDetailScreen(chat: chat),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -167,15 +206,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 },
               ),
             ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: primaryOrange,
-        child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddPetScreen()),
-          );
-        },
+      floatingActionButton: AddPetFAB(
+        primaryOrange: primaryOrange,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: CustomBottomNavBar(

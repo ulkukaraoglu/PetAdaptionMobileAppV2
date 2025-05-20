@@ -38,34 +38,3 @@ class Chat {
     };
   }
 }
-
-class Message {
-  final String id;
-  final String senderId;
-  final String text;
-  final DateTime? timestamp;
-
-  Message({
-    required this.id,
-    required this.senderId,
-    required this.text,
-    this.timestamp,
-  });
-
-  factory Message.fromFirestore(Map<String, dynamic> data, String id) {
-    return Message(
-      id: id,
-      senderId: data['senderId'] ?? '',
-      text: data['text'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
-    );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'senderId': senderId,
-      'text': text,
-      'timestamp': timestamp != null ? Timestamp.fromDate(timestamp!) : null,
-    };
-  }
-}

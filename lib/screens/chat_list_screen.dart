@@ -191,13 +191,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
                               fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
                             ),
                           ),
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => ChatDetailScreen(chat: chat),
                               ),
                             );
+                            _loadChats();
                           },
                         );
                       },

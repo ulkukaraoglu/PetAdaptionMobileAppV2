@@ -5,6 +5,7 @@ import '../screens/profile_edit_screen.dart';
 import '../screens/admin_panel_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/eligibility_form_screen.dart';
+import '../screens/contact_screen.dart';
 import '../services/admin_service.dart';
 
 class ProfileMenu extends StatefulWidget {
@@ -180,6 +181,22 @@ class _ProfileMenuState extends State<ProfileMenu> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => NotificationsScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline, color: Colors.white),
+              title: const Text(
+                'Bize Ulaşın',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Menüyü kapat
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ContactScreen(),
                   ),
                 );
               },

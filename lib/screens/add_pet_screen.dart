@@ -266,7 +266,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 controller: _typeController,
                 style: TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Tür',
+                  labelText: 'Tür (köpek, kedi vb.)',
                   labelStyle: TextStyle(color: Colors.white54),
                   filled: true,
                   fillColor: Colors.white.withOpacity(0.1),

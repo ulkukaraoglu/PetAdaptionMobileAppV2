@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/message.dart';
-import '../utils/chat_service.dart';
+import '../services/chat_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -26,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _fetchOtherUserName();
+    ChatService().markMessagesAsRead(widget.chatId);
   }
 
   Future<void> _fetchOtherUserName() async {
@@ -77,6 +78,14 @@ class _ChatScreenState extends State<ChatScreen> {
             child: StreamBuilder<List<Message>>(
               stream: ChatService().getMessages(widget.chatId),
               builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  final messages = snapshot.data!;
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  final unread = messages.any((msg) => !msg.isRead && msg.senderId != currentUser?.uid);
+                  if (unread) {
+                    ChatService().markMessagesAsRead(widget.chatId);
+                  }
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -139,13 +148,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: () async {
                     final text = _controller.text.trim();
                     if (text.isNotEmpty && currentUser != null) {
-                      final msg = Message(
-                        id: '',
-                        senderId: currentUser.uid,
-                        text: text,
-                        createdAt: DateTime.now(),
-                      );
-                      await ChatService().sendMessage(widget.chatId, msg);
+                      await ChatService().sendMessage(widget.chatId, text);
                       _controller.clear();
                     }
                   },

@@ -167,7 +167,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: darkGrey,
         appBar: AppBar(
@@ -183,6 +183,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               Tab(text: 'Kullanıcılar'),
               Tab(text: 'İlanlar'),
               Tab(text: 'Raporlar'),
+              Tab(text: 'Bildirimler'),
             ],
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white54,
@@ -351,6 +352,81 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             ),
             // Raporlar Tab
             AdminReportsScreen(),
+            // Bildirimler Tab
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('notifications')
+                  .where('userId', isEqualTo: 'admin')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Bir hata oluştu: \\${snapshot.error}'));
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snapshot.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text('Henüz bildirim yok', style: TextStyle(color: Colors.white70)),
+                  );
+                }
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data() as Map<String, dynamic>;
+                    final isRead = data['isRead'] == true;
+                    return Card(
+                      color: isRead ? Colors.white10 : primaryOrange.withOpacity(0.2),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: Icon(
+                          isRead ? Icons.notifications_none : Icons.notifications,
+                          color: isRead ? Colors.white54 : primaryOrange,
+                        ),
+                        title: Text(
+                          data['title'] ?? 'Bildirim',
+                          style: TextStyle(
+                            color: isRead ? Colors.white70 : primaryOrange,
+                            fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          data['body'] ?? '',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        trailing: isRead
+                            ? null
+                            : Icon(Icons.fiber_new, color: primaryOrange),
+                        onTap: () async {
+                          // Okundu olarak işaretle
+                          await docs[index].reference.update({'isRead': true});
+                          // İletişim mesajı ise detay gösterilebilir
+                          if (data['type'] == 'contact_message') {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: darkGrey,
+                                title: Text(data['title'] ?? 'Mesaj', style: const TextStyle(color: Colors.white)),
+                                content: Text(data['body'] ?? '', style: const TextStyle(color: Colors.white70)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Kapat', style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ],
         ),
       ),

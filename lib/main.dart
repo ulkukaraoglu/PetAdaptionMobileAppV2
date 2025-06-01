@@ -4,9 +4,13 @@ import 'firebase_options.dart';
 import 'wrapper.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'config/env.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await Env.init();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
